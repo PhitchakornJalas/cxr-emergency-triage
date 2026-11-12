@@ -39,12 +39,12 @@ class CXRSegmentationTriage(nn.Module):
     )
     chs = self.encoder.feature_info.channels()
 
-    self.dec4 = DecoderBlock(chs[4], chs[3], 256)
-    self.dec3 = DecoderBlock(256, chs[2], 128)
-    self.dec2 = DecoderBlock(128, chs[1], 64)
-    self.dec1 = DecoderBlock(64, chs[0], 32)
+    self.dec4 = DecoderBlock(chs[4], chs[3], 128)
+    self.dec3 = DecoderBlock(128, chs[2], 64)
+    self.dec2 = DecoderBlock(64, chs[1], 32)
+    self.dec1 = DecoderBlock(32, chs[0], 16)
     self.dropout = nn.Dropout2d(p=drop_rate)
-    self.seg_head = nn.Conv2d(32, 1, kernel_size=1)
+    self.seg_head = nn.Conv2d(16, 1, kernel_size=1)
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     input_size = x.shape[2:]

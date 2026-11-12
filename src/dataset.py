@@ -13,7 +13,7 @@ cv2.ocl.setUseOpenCL(False)
 
 def get_transforms(img_size: int = 256):
   train_transform = A.Compose([
-    A.Resize(img_size, img_size),
+    # A.Resize(img_size, img_size),
     A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.5),
     A.HorizontalFlip(p=0.5),
     A.Affine(
@@ -29,7 +29,7 @@ def get_transforms(img_size: int = 256):
   ])
 
   val_test_transform = A.Compose([
-    A.Resize(img_size, img_size),
+    # A.Resize(img_size, img_size),
     A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     ToTensorV2(),
   ])
