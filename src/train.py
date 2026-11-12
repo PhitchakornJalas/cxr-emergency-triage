@@ -36,7 +36,7 @@ def seed_everything(seed: int = 42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
   if torch.backends.mps.is_available():
-    # torch.backends.mps.deterministic = True
+    torch.backends.mps.deterministic = True
     torch.mps.manual_seed(seed)
 
 
