@@ -1,5 +1,6 @@
 import os
 os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 import argparse
 import random
@@ -133,7 +134,7 @@ def validate(model, loader, criterion, device):
 def main(args):
   seed_everything(args.seed)
   device = get_device()
-  print(f"[INFO] Pure Segmentation Triage | Device: {device} | Model: {args.model_name} | Seed: {args.seed}")
+  print(f"[INFO] Segmentation Triage | Device: {device} | Model: {args.model_name} | Seed: {args.seed}")
 
   train_csv = PROJECT_ROOT / "data" / "train.csv"
   val_csv = PROJECT_ROOT / "data" / "val.csv"
@@ -236,7 +237,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Train Pure Segmentation CXR Emergency Triage Model")
+  parser = argparse.ArgumentParser(description="Train Segmentation CXR Emergency Triage Model")
   parser.add_argument("--model_name", type=str, default="densenet121", help="Model architecture from timm")
   parser.add_argument("--img_size", type=int, default=256, help="Input image size")
   parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
