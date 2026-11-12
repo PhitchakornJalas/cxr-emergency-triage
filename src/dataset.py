@@ -82,15 +82,15 @@ class CXRPneumothoraxDataset(Dataset):
 
 
 if __name__ == "__main__":
-    # ทดสอบการทำงานของ Dataset และ DataLoader
-    train_csv = PROJECT_ROOT / "data" / "train.csv"
-    train_tf, _ = get_transforms(img_size=256)
+  # ทดสอบการทำงานของ Dataset และ DataLoader
+  train_csv = PROJECT_ROOT / "data" / "train.csv"
+  train_tf, _ = get_transforms(img_size=256)
 
-    dataset = CXRPneumothoraxDataset(csv_path=train_csv, transform=train_tf)
-    loader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=0)
+  dataset = CXRPneumothoraxDataset(csv_path=train_csv, transform=train_tf)
+  loader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=0)
 
-    images, labels = next(iter(loader))
-    print(f"[TEST PASSED] Dataset Size: {len(dataset)}")
-    print(f"Batch Images Shape : {images.shape} | dtype: {images.dtype}")
-    print(f"Batch Labels Shape : {labels.shape} | dtype: {labels.dtype}")
-    print(f"Sample Labels      : {labels[:8].tolist()}")
+  images, labels = next(iter(loader))
+  print(f"[TEST PASSED] Dataset Size: {len(dataset)}")
+  print(f"Batch Images Shape : {images.shape} | dtype: {images.dtype}")
+  print(f"Batch Labels Shape : {labels.shape} | dtype: {labels.dtype}")
+  print(f"Sample Labels      : {labels[:8].tolist()}")
