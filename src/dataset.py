@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader, Dataset
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+cv2.setNumThreads(0)
+cv2.ocl.setUseOpenCL(False)
 
 def get_transforms(img_size: int = 256):
   train_transform = A.Compose([
