@@ -52,6 +52,11 @@ def main():
     df["seg_filepath"] = df["seg_filepath"].apply(
       lambda p: f"data/processed/segmentations_256/{Path(p).name}"
     )
+
+    if split == "train" and "label" in df.columns:
+      df = df.drop(columns=["label"])
+      print("[INFO] Dropped 'label' column from train.csv")
+
     df.to_csv(csv_path, index=False)
 
   print(f"[SUCCESS] Resized images -> {OUT_IMG_DIR}")
