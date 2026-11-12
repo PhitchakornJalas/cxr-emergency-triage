@@ -37,18 +37,16 @@ def get_transforms(img_size: int = 256):
   return train_transform, val_test_transform
 
 class CXRPneumothoraxDataset(Dataset):
-  def __init__(self, csv_path: Path | str, root_dir: Path = PROJECT_ROOT, transform=None, return_mask: bool = False):
+  def __init__(self, csv_path: Path | str, root_dir: Path = PROJECT_ROOT, transform=None):
     """
     Args:
         csv_path: Path ไปยังไฟล์ train.csv, val.csv หรือ test.csv
         root_dir: โฟลเดอร์ Root ของโปรเจกต์
         transform: Albumentations transform pipeline
-        return_mask: ตั้งเป็น True เฉพาะตอนประเมิน Grad-CAM Localization (Phase 4)
     """
-    self.df = pd.read_csv(csv_path)
+    self.df = pd.read_csv(csv_path).reset_index(drop=True)
     self.root_dir = Path(root_dir)
     self.transform = transform
-    self.return_mask = return_mask
 
   def __len__(self) -> int:
     return len(self.df)
@@ -56,32 +54,33 @@ class CXRPneumothoraxDataset(Dataset):
   def __getitem__(self, idx: int):
     row = self.df.iloc[idx]
     img_path = self.root_dir / row["img_filepath"]
+    mask_path = self.root_dir / row["seg_filepath"]
 
     image = cv2.imread(str(img_path))
     if image is None:
-      raise FileNotFoundError(f"Cannot read image at {img_path}")
+        raise FileNotFoundError(f"Cannot read image at {img_path}")
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    label = torch.tensor(row["label"], dtype=torch.float32)
-
-    if self.return_mask:
-      mask_path = self.root_dir / row["seg_filepath"]
-      mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
-      mask = (mask > 0).astype("float32")
-
-      if self.transform:
-        augmented = self.transform(image=image, mask=mask)
-        image = augmented["image"]
-        mask = augmented["mask"].unsqueeze(0)  # [1, H, W]
-
-      return image, label, mask
+    mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
+    if mask is None:
+      raise FileNotFoundError(f"Cannot read mask at {mask_path}")
+    mask = (mask > 0).astype("float32")
 
     if self.transform:
-        augmented = self.transform(image=image)
-        image = augmented["image"]
+      augmented = self.transform(image=image, mask=mask)
+      X = augmented["image"]
+      mask_tensor = augmented["mask"].unsqueeze(0).float()  # [1, H, W]
+    else:
+      X = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
+      mask_tensor = torch.from_numpy(mask).unsqueeze(0).float()
 
-    return image, label
+    cls_val = 1.0 if (mask_tensor.sum() > 0 and row["label"] == 1) else 0.0
+    y = {
+      "label": torch.tensor(cls_val, dtype=torch.float32),
+      "mask": mask_tensor,
+    }
 
+    return X, y
 
 if __name__ == "__main__":
   # ทดสอบการทำงานของ Dataset และ DataLoader
@@ -91,8 +90,12 @@ if __name__ == "__main__":
   dataset = CXRPneumothoraxDataset(csv_path=train_csv, transform=train_tf)
   loader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=0)
 
-  images, labels = next(iter(loader))
+  X, y = next(iter(loader))
+  labels = y["label"]
+  masks = y["mask"]
+
   print(f"[TEST PASSED] Dataset Size: {len(dataset)}")
-  print(f"Batch Images Shape : {images.shape} | dtype: {images.dtype}")
-  print(f"Batch Labels Shape : {labels.shape} | dtype: {labels.dtype}")
-  print(f"Sample Labels      : {labels[:8].tolist()}")
+  print(f"Batch X (Images) Shape : {X.shape} | dtype: {X.dtype}")
+  print(f"Batch y['label'] Shape : {labels.shape} | dtype: {labels.dtype}")
+  print(f"Batch y['mask'] Shape  : {masks.shape} | dtype: {masks.dtype}")
+  print(f"Sample Labels          : {labels[:8].tolist()}")
