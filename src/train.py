@@ -90,26 +90,21 @@ def train_one_epoch(model, loader, criterion, optimizer, device, stage: int, acc
 
 
 @torch.no_grad()
-def validate(model, loader, criterion, device, stage: int):
+def validate(model, loader, device, stage: int):
   model.eval()
   running_loss = 0.0
   all_probs = []
   all_targets = []
+  val_bce = nn.BCEWithLogitsLoss()
 
   for X, y in tqdm(loader, desc=f"Val   S{stage}", leave=False):
     images = X.to(device)
     labels = y.float().unsqueeze(1).to(device)
 
-    # คำนวณ Validation Loss ให้ตรงกับ Stage
-    if stage == 1:
-      logits = model(images, apply_bsn=False)
-      loss = criterion(logits, labels)
-    else:
-      logits = model(images, apply_bsn=False)
-      bsn_preds = model(images, apply_bsn=True)
-      loss = criterion(bsn_preds, labels)
+    logits = model(images, apply_bsn=False)
+    loss = val_bce(logits, labels)
 
-    # ตอนวัดผล ROC-AUC / PR-AUC ใช้ความน่าจะเป็นดิบ (ปิด BSN เพื่อไม่ให้ขึ้นกับขนาด Batch)
+    # วัดผล ROC-AUC / PR-AUC จากความน่าจะเป็นดิบของทั้งชุด Validation
     probs = torch.sigmoid(logits).squeeze(1)
 
     running_loss += loss.item() * images.size(0)
@@ -252,7 +247,7 @@ def main(args):
 
     current_lr = optimizer.param_groups[0]["lr"]
     train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, stage=args.stage, accum_steps=accum_steps)
-    val_loss, val_roc_auc, val_pr_auc = validate(model, val_loader, criterion, device, stage=args.stage)
+    val_loss, val_roc_auc, val_pr_auc = validate(model, val_loader, device, stage=args.stage)
 
     if scheduler is not None:
       scheduler.step()
