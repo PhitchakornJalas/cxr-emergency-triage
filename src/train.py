@@ -4,6 +4,7 @@ os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
+from libauc.sampler import DualSampler
 
 import argparse
 import random
@@ -157,6 +158,26 @@ def main(args):
     num_workers=args.num_workers,
     persistent_workers=(args.num_workers > 0),
   )
+  if args.stage == 2:
+    # บังคับให้ทุก Batch มี Positive Sample ผสมอยู่ด้วยอัตราส่วน 0.25 (4 รูปใน 16 รูป)
+    sampler = DualSampler(train_dataset, batch_size=args.batch_size, sampling_rate=0.25)
+    train_loader = DataLoader(
+      train_dataset,
+      batch_size=args.batch_size,
+      sampler=sampler,  # ใช้ sampler แทน shuffle=True
+      num_workers=args.num_workers,
+      persistent_workers=(args.num_workers > 0),
+      drop_last=True,
+    )
+  else:
+    train_loader = DataLoader(
+      train_dataset,
+      batch_size=args.batch_size,
+      shuffle=True,
+      num_workers=args.num_workers,
+      persistent_workers=(args.num_workers > 0),
+      generator=g,
+    )
 
   ckpt_dir = PROJECT_ROOT / "checkpoints"
   log_dir = PROJECT_ROOT / "outputs" / "logs"
@@ -190,15 +211,29 @@ def main(args):
     print(f"[INFO] Stage 2 Loaded Stage 1 Weights (Val AUC: {ckpt['val_roc_auc']:.4f}) | Train Imratio: {imratio:.4f}")
 
     lr = args.lr if args.lr is not None else 0.05
-    criterion = AUCMLoss(imratio=imratio, margin=args.margin).to(device)
-    optimizer = PESG(
-      model.parameters(),
-      loss_fn=criterion,
-      lr=lr,
-      gamma=args.gamma,
-      margin=args.margin,
-      weight_decay=0.0,
-    )
+    criterion = AUCMLoss(imratio=imratio, margin=args.margin, device=device).to(device)
+    criterion.a.data = criterion.a.data.to(device)
+    criterion.b.data = criterion.b.data.to(device)
+    criterion.alpha.data = criterion.alpha.data.to(device)
+    try:
+      optimizer = PESG(
+        model.parameters(),
+        loss_fn=criterion,
+        lr=lr,
+        gamma=args.gamma,
+        margin=args.margin,
+        weight_decay=0.0,
+        device=device,
+      )
+    except TypeError:
+      optimizer = PESG(
+        model.parameters(),
+        loss_fn=criterion,
+        lr=lr,
+        gamma=args.gamma,
+        margin=args.margin,
+        weight_decay=0.0,
+      )
     scheduler = None
     accum_steps = 2  # ห้ามใช้ gradient accumulation ใน Stage 2 เพราะ BSN ผูกกับขนาด Batch
     best_ckpt_path = ckpt_dir / f"{args.model_name}_dam_stage2_best.pth"

@@ -43,6 +43,7 @@ class CXRPneumothoraxDataset(Dataset):
     self.transform = transform
     self.cache_in_ram = cache_in_ram
     self.images = []
+    self.targets = self.df["label"].values.astype(int)
 
     if self.cache_in_ram:
       for idx in range(len(self.df)):
