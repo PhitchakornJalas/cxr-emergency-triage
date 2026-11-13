@@ -12,6 +12,7 @@ class CXRClassificationDAM(nn.Module):
       pretrained=pretrained,
       num_classes=1,
       drop_rate=drop_rate,
+      memory_efficient=True,
     )
 
   def reset_classifier(self):

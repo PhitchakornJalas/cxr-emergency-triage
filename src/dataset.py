@@ -37,10 +37,20 @@ def get_transforms(img_size: int = 256):
   return train_transform, val_test_transform
 
 class CXRPneumothoraxDataset(Dataset):
-  def __init__(self, csv_path: Path | str, root_dir: Path = PROJECT_ROOT, transform=None):
+  def __init__(self, csv_path: Path | str, root_dir: Path = PROJECT_ROOT, transform=None, cache_in_ram: bool = False):
     self.df = pd.read_csv(csv_path).reset_index(drop=True)
     self.root_dir = Path(root_dir)
     self.transform = transform
+    self.cache_in_ram = cache_in_ram
+    self.images = []
+
+    if self.cache_in_ram:
+      for idx in range(len(self.df)):
+        img_path = self.root_dir / self.df.iloc[idx]["img_filepath"]
+        img = cv2.imread(str(img_path))
+        if img is None:
+          raise FileNotFoundError(f"Cannot read image at {img_path}")
+        self.images.append(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
   def get_imratio(self) -> float:
     return float((self.df["label"] == 1).mean())
@@ -49,20 +59,19 @@ class CXRPneumothoraxDataset(Dataset):
     return len(self.df)
 
   def __getitem__(self, idx: int):
-    row = self.df.iloc[idx]
-    img_path = self.root_dir / row["img_filepath"]
-
-    image = cv2.imread(str(img_path))
-    if image is None:
-      raise FileNotFoundError(f"Cannot read image at {img_path}")
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    if self.cache_in_ram:
+      image = self.images[idx]
+    else:
+      img_path = self.root_dir / self.df.iloc[idx]["img_filepath"]
+      image = cv2.imread(str(img_path))
+      image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     if self.transform:
       X = self.transform(image=image)["image"]
     else:
       X = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
 
-    y = torch.tensor(float(row["label"]), dtype=torch.float32)
+    y = torch.tensor(float(self.df.iloc[idx]["label"]), dtype=torch.float32)
     return X, y
 
 if __name__ == "__main__":
