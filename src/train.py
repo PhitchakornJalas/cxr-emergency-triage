@@ -15,6 +15,7 @@ import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
