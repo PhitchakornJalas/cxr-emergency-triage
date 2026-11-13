@@ -192,11 +192,8 @@ def main(args):
     lr = args.lr if args.lr is not None else 0.05
     criterion = AUCMLoss(imratio=imratio, margin=args.margin).to(device)
     optimizer = PESG(
-      model,
-      a=criterion.a,
-      b=criterion.b,
-      alpha=criterion.alpha,
-      imratio=imratio,
+      model.parameters(),
+      loss_fn=criterion,
       lr=lr,
       gamma=args.gamma,
       margin=args.margin,
