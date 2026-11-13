@@ -50,20 +50,21 @@ def get_device() -> torch.device:
 
 
 class SegmentationLoss(nn.Module):
-  def __init__(self, smooth: float = 1.0):
+  def __init__(self, pos_weight_val: float = 3.0, smooth: float = 1.0):
     super().__init__()
-    self.bce = nn.BCEWithLogitsLoss()
+    self.pos_weight_val = pos_weight_val
     self.smooth = smooth
 
   def forward(self, seg_logits: torch.Tensor, masks: torch.Tensor) -> torch.Tensor:
-    bce_loss = self.bce(seg_logits, masks)
+    pos_weight = torch.tensor([self.pos_weight_val], device=seg_logits.device, dtype=seg_logits.dtype)
+    bce_loss = F.binary_cross_entropy_with_logits(seg_logits, masks, pos_weight=pos_weight)
 
     probs = torch.sigmoid(seg_logits).view(seg_logits.size(0), -1)
     targets = masks.view(masks.size(0), -1)
     inter = (probs * targets).sum(dim=1)
     dice_loss = 1.0 - ((2.0 * inter + self.smooth) / (probs.sum(dim=1) + targets.sum(dim=1) + self.smooth)).mean()
 
-    return 0.5 * bce_loss + 0.5 * dice_loss
+    return 0.25 * bce_loss + 0.75 * dice_loss
 
 def train_one_epoch(model, loader, criterion, optimizer, device, accum_steps: int = 2):
   model.train()
