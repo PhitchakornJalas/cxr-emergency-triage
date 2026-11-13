@@ -38,15 +38,12 @@ def get_transforms(img_size: int = 256):
 
 class CXRPneumothoraxDataset(Dataset):
   def __init__(self, csv_path: Path | str, root_dir: Path = PROJECT_ROOT, transform=None):
-    """
-    Args:
-        csv_path: Path ไปยังไฟล์ train.csv, val.csv หรือ test.csv
-        root_dir: โฟลเดอร์ Root ของโปรเจกต์
-        transform: Albumentations transform pipeline
-    """
     self.df = pd.read_csv(csv_path).reset_index(drop=True)
     self.root_dir = Path(root_dir)
     self.transform = transform
+
+  def get_imratio(self) -> float:
+    return float((self.df["label"] == 1).mean())
 
   def __len__(self) -> int:
     return len(self.df)
@@ -54,32 +51,18 @@ class CXRPneumothoraxDataset(Dataset):
   def __getitem__(self, idx: int):
     row = self.df.iloc[idx]
     img_path = self.root_dir / row["img_filepath"]
-    mask_path = self.root_dir / row["seg_filepath"]
 
     image = cv2.imread(str(img_path))
     if image is None:
-        raise FileNotFoundError(f"Cannot read image at {img_path}")
+      raise FileNotFoundError(f"Cannot read image at {img_path}")
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
-    if mask is None:
-      raise FileNotFoundError(f"Cannot read mask at {mask_path}")
-    mask = (mask > 0).astype("float32")
-
     if self.transform:
-      augmented = self.transform(image=image, mask=mask)
-      X = augmented["image"]
-      mask_tensor = augmented["mask"].unsqueeze(0).float()  # [1, H, W]
+      X = self.transform(image=image)["image"]
     else:
       X = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
-      mask_tensor = torch.from_numpy(mask).unsqueeze(0).float()
 
-    cls_val = 1.0 if (mask_tensor.sum() > 0 and row["label"] == 1) else 0.0
-    y = {
-      "label": torch.tensor(cls_val, dtype=torch.float32),
-      "mask": mask_tensor,
-    }
-
+    y = torch.tensor(float(row["label"]), dtype=torch.float32)
     return X, y
 
 if __name__ == "__main__":
@@ -91,11 +74,8 @@ if __name__ == "__main__":
   loader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=0)
 
   X, y = next(iter(loader))
-  labels = y["label"]
-  masks = y["mask"]
 
   print(f"[TEST PASSED] Dataset Size: {len(dataset)}")
   print(f"Batch X (Images) Shape : {X.shape} | dtype: {X.dtype}")
-  print(f"Batch y['label'] Shape : {labels.shape} | dtype: {labels.dtype}")
-  print(f"Batch y['mask'] Shape  : {masks.shape} | dtype: {masks.dtype}")
-  print(f"Sample Labels          : {labels[:8].tolist()}")
+  print(f"Batch y['label'] Shape : {y.shape} | dtype: {y.dtype}")
+  print(f"Sample Labels          : {y[:8].tolist()}")
