@@ -2,6 +2,9 @@ import os
 os.environ["NO_ALBUMENTATIONS_UPDATE"] = "1"
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 import argparse
 import random
 from pathlib import Path
@@ -60,16 +63,16 @@ def train_one_epoch(model, loader, criterion, optimizer, device, stage: int, acc
     images = X.to(device)
     labels = y.float().unsqueeze(1).to(device)  # shape: [B, 1]
 
-    with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=(device.type == "cuda")):
-      if stage == 1:
-        logits = model(images, apply_bsn=False)
-        loss = criterion(logits, labels)
-      else:
-        # Stage 2: เปิด Batch Score Normalization (BSN) ก่อนเข้า AUCMLoss ตามเปเปอร์
-        preds = model(images, apply_bsn=True)
-        loss = criterion(preds, labels)
+    # with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=(device.type == "cuda")):
+    if stage == 1:
+      logits = model(images, apply_bsn=False)
+      loss = criterion(logits, labels)
+    else:
+      # Stage 2: เปิด Batch Score Normalization (BSN) ก่อนเข้า AUCMLoss ตามเปเปอร์
+      preds = model(images, apply_bsn=True)
+      loss = criterion(preds, labels)
 
-      loss_scaled = loss / accum_steps
+    loss_scaled = loss / accum_steps
 
     loss_scaled.backward()
 
