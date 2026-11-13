@@ -183,7 +183,7 @@ def main(args):
   print("-" * 85)
   for epoch in range(1, args.epochs + 1):
     current_lr = optimizer.param_groups[0]["lr"]
-    train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, accum_steps=2)
+    train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, accum_steps=4)
     val_loss, val_roc_auc, val_pr_auc, val_pos_dice = validate(model, val_loader, criterion, device)
     scheduler.step()
 
