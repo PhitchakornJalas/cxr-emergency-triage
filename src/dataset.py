@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
 
-def get_transforms(img_size: int = 384):
+def get_transforms(img_size: int = 256):
   train_transform = A.Compose([
     # A.Resize(img_size, img_size),
     A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.5),

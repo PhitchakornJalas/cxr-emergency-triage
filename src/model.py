@@ -9,16 +9,16 @@ class AttentionGate(nn.Module):
   def __init__(self, g_ch: int, x_ch: int, inter_ch: int):
     super().__init__()
     self.W_g = nn.Sequential(
-        nn.Conv2d(g_ch, inter_ch, kernel_size=1, bias=False),
-        nn.BatchNorm2d(inter_ch),
+      nn.Conv2d(g_ch, inter_ch, kernel_size=1, bias=False),
+      nn.BatchNorm2d(inter_ch),
     )
     self.W_x = nn.Sequential(
-        nn.Conv2d(x_ch, inter_ch, kernel_size=1, bias=False),
-        nn.BatchNorm2d(inter_ch),
+      nn.Conv2d(x_ch, inter_ch, kernel_size=1, bias=False),
+      nn.BatchNorm2d(inter_ch),
     )
     self.psi = nn.Sequential(
-        nn.Conv2d(inter_ch, 1, kernel_size=1, bias=True),
-        nn.Sigmoid(),
+      nn.Conv2d(inter_ch, 1, kernel_size=1, bias=True),
+      nn.Sigmoid(),
     )
     self.relu = nn.ReLU(inplace=True)
 
@@ -55,7 +55,6 @@ class CXRSegmentationTriage(nn.Module):
     super().__init__()
     self.model_name = model_name
 
-    # ดึงครบทั้ง 5 ระดับเพื่อขยายถึงความละเอียด 128x128 (หรือ 192x192 เมื่อ input=384)
     self.encoder = timm.create_model(
         model_name,
         pretrained=pretrained,
@@ -96,7 +95,7 @@ def build_model(model_name: str = "densenet121", pretrained: bool = True, drop_r
 
 if __name__ == "__main__":
   model = build_model(model_name="densenet121", pretrained=False)
-  dummy_input = torch.randn(4, 3, 384, 384)
+  dummy_input = torch.randn(4, 3, 256, 256)
   seg_logits = model(dummy_input)
   img_probs = model.logits_to_image_prob(seg_logits)
 

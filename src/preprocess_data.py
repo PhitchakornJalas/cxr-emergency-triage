@@ -6,9 +6,9 @@ from tqdm import tqdm
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
-OUT_IMG_DIR = DATA_DIR / "processed" / "images_384"
-OUT_SEG_DIR = DATA_DIR / "processed" / "segmentations_384"
-IMG_SIZE = 384
+OUT_IMG_DIR = DATA_DIR / "processed" / "images_256"
+OUT_SEG_DIR = DATA_DIR / "processed" / "segmentations_256"
+IMG_SIZE = 256
 
 
 def resize_pair(row_tuple):
@@ -47,10 +47,10 @@ def main():
     csv_path = DATA_DIR / f"{split}.csv"
     df = pd.read_csv(csv_path)
     df["img_filepath"] = df["img_filepath"].apply(
-      lambda p: f"data/processed/images_384/{Path(p).name}"
+      lambda p: f"data/processed/images_256/{Path(p).name}"
     )
     df["seg_filepath"] = df["seg_filepath"].apply(
-      lambda p: f"data/processed/segmentations_384/{Path(p).name}"
+      lambda p: f"data/processed/segmentations_256/{Path(p).name}"
     )
 
     df.to_csv(csv_path, index=False)
