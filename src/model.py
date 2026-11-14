@@ -29,10 +29,12 @@ class HybridCXRSegmentationDAM(nn.Module):
 
     # 1. Shared Encoder (memory_efficient=True ลด VRAM บน MPS 40-50%)
     is_densenet = "densenet" in model_name.lower()
+    has_stem_idx = any(k in model_name.lower() for k in ["densenet", "resnet", "resnext", "efficientnet"])
+
     encoder_kwargs = {
       "pretrained": pretrained,
       "features_only": True,
-      "out_indices": (1, 2, 3, 4) if is_densenet else (0, 1, 2, 3),
+      "out_indices": (1, 2, 3, 4) if has_stem_idx else (0, 1, 2, 3),
     }
     if is_densenet:
       encoder_kwargs["memory_efficient"] = True
