@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CXR Emergency Triage AI — Pneumothorax Priority Queue</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- ONNX Runtime Web (Client-Side Inference Engine) -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="pulse-dot" id="model-status-dot"></span>
+      <div>
+        <h1>CXR Emergency Triage AI</h1>
+        <p class="subtitle" id="model-status-text">กำลังโหลดโมเดล ONNX...</p>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="badge-info" id="config-badge">Threshold: -- | Top-K: --</span>
+      <button id="btn-back-upload" class="btn btn-outline hidden">← อัปโหลดชุดใหม่</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- ==================== VIEW 1: BATCH UPLOAD ==================== -->
+    <section id="view-upload" class="card upload-card">
+      <div class="upload-header">
+        <h2>1. รับภาพเอกซเรย์ปอดเข้าสู่ระบบคัดกรอง (Batch X-Ray Intake)</h2>
+        <p>อัปโหลดภาพ Chest X-Ray (.png, .jpg) พร้อมกันหลายภาพ ระบบจะประมวลผลในเบราว์เซอร์โดยไม่ส่งข้อมูลออกนอกเครื่อง และจัดลำดับคิวความเร่งด่วนให้แพทย์อัตโนมัติ</p>
+      </div>
+
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-icon">🩻</div>
+        <h3>ลากไฟล์ภาพ X-Ray มาวางที่นี่ หรือคลิกเพื่อเลือกหลายไฟล์</h3>
+        <p class="hint">รองรับไฟล์ PNG / JPG (สามารถเลือก 5–50 ภาพพร้อมกันได้)</p>
+        <input type="file" id="file-input" accept="image/png, image/jpeg" multiple hidden />
+        <button type="button" id="btn-select-files" class="btn btn-primary" disabled>
+          เลือกไฟล์ภาพ X-Ray
+        </button>
+      </div>
+
+      <!-- แสดงรายการไฟล์ที่เลือกก่อนเริ่มประมวลผล -->
+      <div id="selected-preview-box" class="selected-box hidden">
+        <div class="selected-bar">
+          <span id="selected-count-label">เลือกแล้ว 0 ภาพ</span>
+          <div class="action-group">
+            <button type="button" id="btn-clear-files" class="btn btn-ghost">ล้างรายการ</button>
+            <button type="button" id="btn-run-triage" class="btn btn-urgent">
+              ⚡ เริ่มประมวลผลและจัดลำดับคิว
+            </button>
+          </div>
+        </div>
+        <div id="thumbnail-strip" class="thumbnail-strip"></div>
+      </div>
+
+      <!-- Progress Bar ขณะรัน Inference -->
+      <div id="progress-container" class="progress-box hidden">
+        <div class="progress-text">
+          <span id="progress-label">กำลังวิเคราะห์ภาพ...</span>
+          <span id="progress-percent">0%</span>
+        </div>
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: TRIAGE QUEUE DASHBOARD ==================== -->
+    <section id="view-queue" class="hidden">
+      <!-- Summary Metrics -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">จำนวนฟิล์มทั้งหมด (Total Scans)</span>
+          <strong class="stat-value" id="stat-total">0</strong>
+        </div>
+        <div class="stat-card stat-urgent">
+          <span class="stat-label">เคสด่วนวิกฤต (URGENT — Pneumothorax)</span>
+          <strong class="stat-value" id="stat-urgent">0</strong>
+        </div>
+        <div class="stat-card stat-normal">
+          <span class="stat-label">เคสปกติ (NORMAL — Routine Queue)</span>
+          <strong class="stat-value" id="stat-normal">0</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">เวลาประมวลผลเฉลี่ย / ภาพ</span>
+          <strong class="stat-value" id="stat-latency">0 ms</strong>
+        </div>
+      </div>
+
+      <!-- Filter & Queue Table -->
+      <div class="card queue-card">
+        <div class="queue-header">
+          <div>
+            <h2>2. ลำดับคิวการอ่านฟิล์มฉุกเฉิน (Prioritized Triage Queue)</h2>
+            <p class="subtitle">เรียงลำดับตามค่าความเสี่ยงสูงสุด (Top-K Segmentation Confidence) จากมากไปน้อย</p>
+          </div>
+          <div class="filter-pills">
+            <button class="pill active" data-filter="ALL">ทั้งหมด</button>
+            <button class="pill" data-filter="URGENT">เฉพาะเคสด่วน (Urgent)</button>
+            <button class="pill" data-filter="NORMAL">เฉพาะปกติ (Normal)</button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="queue-table">
+            <thead>
+              <tr>
+                <th>ลำดับคิว</th>
+                <th>ภาพตัวอย่าง</th>
+                <th>รหัส / ชื่อไฟล์</th>
+                <th>สถานะความเร่งด่วน</th>
+                <th>ระดับความเสี่ยง (Risk Score)</th>
+                <th>พื้นที่รอยโรค (Mask Area)</th>
+                <th>ตรวจสอบตำแหน่ง</th>
+              </tr>
+            </thead>
+            <tbody id="queue-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== MODAL: INSPECT SEGMENTATION OVERLAY ==================== -->
+  <div id="inspect-modal" class="modal hidden">
+    <div class="modal-backdrop" id="modal-close-bg"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-title">รายละเอียดผลการวิเคราะห์</h3>
+          <p id="modal-subtitle" class="subtitle"></p>
+        </div>
+        <button id="modal-close-btn" class="btn btn-ghost">✕ ปิด</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="compare-grid">
+          <div class="canvas-box">
+            <span class="canvas-tag">ภาพเอกซเรย์ต้นฉบับ (Original CXR)</span>
+            <canvas id="canvas-original"></canvas>
+          </div>
+          <div class="canvas-box">
+            <span class="canvas-tag tag-overlay">ตำแหน่งสงสัยลมรั่ว (AI Segmentation Overlay)</span>
+            <canvas id="canvas-overlay"></canvas>
+          </div>
+        </div>
+
+        <div class="modal-controls">
+          <label class="toggle-label">
+            <input type="checkbox" id="toggle-mask" checked />
+            แสดงไฮไลต์ตำแหน่งรอยโรค (Mask Overlay)
+          </label>
+          <div class="legend">
+            <span class="legend-item"><i class="swatch-high"></i> ความมั่นใจสูง (> 0.50)</span>
+            <span class="legend-item"><i class="swatch-low"></i> เฝ้าระวัง (> Threshold)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
