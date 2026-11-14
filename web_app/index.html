@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,6 +9,7 @@
   <!-- ONNX Runtime Web (Client-Side Inference Engine) -->
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
 </head>
+
 <body>
   <header class="topbar">
     <div class="brand">
@@ -28,7 +30,8 @@
     <section id="view-upload" class="card upload-card">
       <div class="upload-header">
         <h2>1. รับภาพเอกซเรย์ปอดเข้าสู่ระบบคัดกรอง (Batch X-Ray Intake)</h2>
-        <p>อัปโหลดภาพ Chest X-Ray (.png, .jpg) พร้อมกันหลายภาพ ระบบจะประมวลผลในเบราว์เซอร์โดยไม่ส่งข้อมูลออกนอกเครื่อง และจัดลำดับคิวความเร่งด่วนให้แพทย์อัตโนมัติ</p>
+        <p>อัปโหลดภาพ Chest X-Ray (.png, .jpg) พร้อมกันหลายภาพ ระบบจะประมวลผลในเบราว์เซอร์โดยไม่ส่งข้อมูลออกนอกเครื่อง
+          และจัดลำดับคิวความเร่งด่วนให้แพทย์อัตโนมัติ</p>
       </div>
 
       <div id="drop-zone" class="drop-zone">
@@ -154,7 +157,7 @@
           </label>
           <div class="legend">
             <span class="legend-item"><i class="swatch-high"></i> ความมั่นใจสูง (> 0.50)</span>
-            <span class="legend-item"><i class="swatch-low"></i> เฝ้าระวัง (> Threshold)</span>
+            <span class="legend-item"><i class="swatch-low"></i> เฝ้าระวัง (0.25 – 0.50)</span>
           </div>
         </div>
       </div>
@@ -163,4 +166,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>

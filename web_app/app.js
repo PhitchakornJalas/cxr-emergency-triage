@@ -352,6 +352,8 @@ function drawOverlayCanvas(item, showMask) {
   const pixels = imgData.data;
   const thresh = appConfig.threshold;
 
+  const lowThresh = 0.25;
+
   for (let i = 0; i < item.probMap.length; i++) {
     const p = item.probMap[i];
     if (p > 0.5) {
@@ -359,8 +361,8 @@ function drawOverlayCanvas(item, showMask) {
       pixels[i * 4] = Math.min(255, pixels[i * 4] * 0.4 + 239 * 0.6);
       pixels[i * 4 + 1] = pixels[i * 4 + 1] * 0.4 + 68 * 0.6;
       pixels[i * 4 + 2] = pixels[i * 4 + 2] * 0.4 + 68 * 0.6;
-    } else if (p >= thresh) {
-      // จุดเฝ้าระวัง (>= Threshold) -> ไฮไลต์สีฟ้า Cyan
+    } else if (p >= lowThresh) {
+      // จุดเฝ้าระวัง (>= 0.25) -> ไฮไลต์สีฟ้า Cyan
       pixels[i * 4] = pixels[i * 4] * 0.5 + 56 * 0.5;
       pixels[i * 4 + 1] = Math.min(255, pixels[i * 4 + 1] * 0.5 + 189 * 0.5);
       pixels[i * 4 + 2] = Math.min(255, pixels[i * 4 + 2] * 0.5 + 248 * 0.5);

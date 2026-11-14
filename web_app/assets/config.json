@@ -1,0 +1,18 @@
+{
+  "model_name": "densenet121",
+  "architecture": "hybrid_seg_dam_stage2",
+  "img_size": 256,
+  "threshold": 0.009,
+  "top_k": 16,
+  "alpha": 0.7,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ]
+}
