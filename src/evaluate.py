@@ -31,44 +31,23 @@ def get_device() -> torch.device:
     return torch.device("mps")
   return torch.device("cpu")
 
+
 @torch.no_grad()
 def predict_outputs(model: torch.nn.Module, loader: DataLoader, device: torch.device):
-  """รัน Inference คืนค่า Image-level Probs, Labels และ Segmentation Metrics (Dice, IoU)"""
+  """รัน Inference คืนค่า Image-level Labels และ Probs (ปิด BSN เพื่อให้ค่าคงที่ทุกรูป)"""
   model.eval()
   all_probs = []
   all_targets = []
-  pos_dice_list = []
-  pos_iou_list = []
 
-  for X, y in tqdm(loader, desc="Inference", leave=False):
+  for X, labels in tqdm(loader, desc="Inference", leave=False):
     images = X.to(device)
-    labels = y["label"]
-    masks = y["mask"].to(device)
-
-    seg_logits = model(images)
-    probs = model.logits_to_image_prob(seg_logits)
+    logits = model(images, apply_bsn=False)
+    probs = torch.sigmoid(logits).squeeze(1)
 
     all_probs.extend(probs.cpu().numpy())
     all_targets.extend(labels.numpy())
 
-    pred_masks = (torch.sigmoid(seg_logits) > 0.5).float()
-    for i in range(images.size(0)):
-      if labels[i].item() == 1.0:
-        inter = (pred_masks[i] * masks[i]).sum().item()
-        pred_sum = pred_masks[i].sum().item()
-        gt_sum = masks[i].sum().item()
-        union = pred_sum + gt_sum - inter
-
-        dice = (2.0 * inter + 1e-6) / (pred_sum + gt_sum + 1e-6)
-        iou = (inter + 1e-6) / (union + 1e-6)
-        pos_dice_list.append(dice)
-        pos_iou_list.append(iou)
-
-  seg_metrics = {
-    "mean_pos_dice": round(float(np.mean(pos_dice_list)), 4) if pos_dice_list else 0.0,
-    "mean_pos_iou": round(float(np.mean(pos_iou_list)), 4) if pos_iou_list else 0.0,
-  }
-  return np.array(all_targets), np.array(all_probs), seg_metrics
+  return np.array(all_targets), np.array(all_probs)
 
 
 def find_clinical_threshold(y_true: np.ndarray, y_probs: np.ndarray, target_sensitivity: float = 0.95) -> float:
@@ -126,8 +105,8 @@ def plot_evaluation_curves(
   y_true: np.ndarray,
   y_probs: np.ndarray,
   metrics: dict,
-  seg_metrics: dict,
   model_name: str,
+  stage: int,
   save_path: Path,
 ):
   """พล็อตกราฟ 3 ช่อง: ROC Curve | Precision-Recall Curve | Clinical Confusion Matrix"""
@@ -182,8 +161,7 @@ def plot_evaluation_curves(
   axes[2].set_title(f"Confusion Matrix (Thresh = {metrics['threshold']})", fontweight="bold")
 
   fig.suptitle(
-    f"Clinical Triage & Segmentation Evaluation — {model_name} "
-    f"(Pos Dice = {seg_metrics['mean_pos_dice']:.4f} | IoU = {seg_metrics['mean_pos_iou']:.4f})",
+    f"Clinical Triage Evaluation — {model_name} (DAM Stage {stage})",
     fontsize=13,
     fontweight="bold",
     y=1.02,
@@ -197,18 +175,18 @@ def plot_evaluation_curves(
 
 def main(args):
   device = get_device()
-  ckpt_path = PROJECT_ROOT / "checkpoints" / f"{args.model_name}_seg_best.pth"
+  ckpt_path = PROJECT_ROOT / "checkpoints" / f"{args.model_name}_dam_stage{args.stage}_best.pth"
   if not ckpt_path.exists():
     raise FileNotFoundError(f"Checkpoint not found at {ckpt_path}")
 
-  checkpoint = torch.load(ckpt_path, map_location=device, weights_only=True)
+  checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
   img_size = checkpoint.get("img_size", 256)
 
   model = build_model(model_name=args.model_name, pretrained=False, drop_rate=0.0).to(device)
   model.load_state_dict(checkpoint["model_state_dict"])
   print(
-    f"[INFO] Loaded {args.model_name} (Seg) | Best Epoch {checkpoint['epoch']} "
-    f"| Val ROC-AUC: {checkpoint['val_roc_auc']:.4f} | Val Pos Dice: {checkpoint.get('val_pos_dice', 0.0):.4f}"
+    f"[INFO] Loaded {args.model_name} (DAM Stage {args.stage}) | Best Epoch {checkpoint['epoch']} "
+    f"| Val ROC-AUC: {checkpoint['val_roc_auc']:.4f} | Val PR-AUC: {checkpoint.get('val_pr_auc', 0.0):.4f}"
   )
 
   _, eval_tf = get_transforms(img_size=img_size)
@@ -218,10 +196,10 @@ def main(args):
   val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
   test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
-  val_targets, val_probs, _ = predict_outputs(model, val_loader, device)
+  val_targets, val_probs = predict_outputs(model, val_loader, device)
   calibrated_thresh = find_clinical_threshold(val_targets, val_probs, target_sensitivity=args.target_sens)
 
-  test_targets, test_probs, test_seg_metrics = predict_outputs(model, test_loader, device)
+  test_targets, test_probs = predict_outputs(model, test_loader, device)
   default_metrics = compute_clinical_metrics(test_targets, test_probs, threshold=0.50)
   triage_metrics = compute_clinical_metrics(test_targets, test_probs, threshold=calibrated_thresh)
 
@@ -231,8 +209,7 @@ def main(args):
   ])
 
   print("\n" + "=" * 95)
-  print(f"TEST SET EVALUATION SUMMARY: {args.model_name.upper()} (PURE SEGMENTATION TRIAGE)")
-  print(f"Localization Quality (Positive Cases): Mean Dice = {test_seg_metrics['mean_pos_dice']:.4f} | Mean IoU = {test_seg_metrics['mean_pos_iou']:.4f}")
+  print(f"TEST SET EVALUATION SUMMARY: {args.model_name.upper()} (DAM STAGE {args.stage})")
   print("=" * 95)
   print(comparison_df.to_string(index=False))
   print("=" * 95)
@@ -242,25 +219,25 @@ def main(args):
 
   result_payload = {
     "model_name": args.model_name,
-    "architecture": "pure_segmentation_unet",
-    "best_epoch": checkpoint["epoch"],
+    "architecture": f"dam_stage{args.stage}_classification",
+    "best_epoch": int(checkpoint["epoch"]),
     "val_roc_auc": round(float(checkpoint["val_roc_auc"]), 4),
-    "segmentation_metrics": test_seg_metrics,
     "default_050": default_metrics,
     "clinical_triage": triage_metrics,
   }
-  json_path = eval_dir / f"{args.model_name}_seg_metrics.json"
+  json_path = eval_dir / f"{args.model_name}_dam_stage{args.stage}_metrics.json"
   with open(json_path, "w") as f:
     json.dump(result_payload, f, indent=2)
   print(f"[SAVED] Metrics JSON    -> {json_path}")
 
-  plot_path = eval_dir / f"{args.model_name}_seg_eval_curves.png"
-  plot_evaluation_curves(test_targets, test_probs, triage_metrics, test_seg_metrics, args.model_name, plot_path)
+  plot_path = eval_dir / f"{args.model_name}_dam_stage{args.stage}_eval_curves.png"
+  plot_evaluation_curves(test_targets, test_probs, triage_metrics, args.model_name, args.stage, plot_path)
 
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Evaluate & Calibrate Segmentation CXR Triage Model")
+  parser = argparse.ArgumentParser(description="Evaluate & Calibrate DAM CXR Triage Model")
   parser.add_argument("--model_name", type=str, default="densenet121", help="Model architecture name")
+  parser.add_argument("--stage", type=int, choices=[1, 2], default=2, help="Evaluate Stage 1 or Stage 2 checkpoint")
   parser.add_argument("--batch_size", type=int, default=16, help="Inference batch size")
   parser.add_argument("--target_sens", type=float, default=0.95, help="Target sensitivity for triage calibration")
 
