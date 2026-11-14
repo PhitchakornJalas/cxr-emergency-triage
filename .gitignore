@@ -266,3 +266,4 @@ mlruns/
 lightning_logs/
 
 outputs/
+demo_test_images/
