@@ -28,15 +28,17 @@ class HybridCXRSegmentationDAM(nn.Module):
     self.model_name = model_name
 
     # 1. Shared Encoder (memory_efficient=True ลด VRAM บน MPS 40-50%)
+    is_densenet = "densenet" in model_name.lower()
     encoder_kwargs = {
       "pretrained": pretrained,
       "features_only": True,
-      "out_indices": (1, 2, 3, 4),
+      "out_indices": (1, 2, 3, 4) if is_densenet else (0, 1, 2, 3),
     }
-    if "densenet" in model_name.lower():
+    if is_densenet:
       encoder_kwargs["memory_efficient"] = True
 
     self.encoder = timm.create_model(model_name, **encoder_kwargs)
+    
     chs = self.encoder.feature_info.channels()  # [256, 512, 1024, 1024]
 
     # 2. Branch 1: Segmentation Decoder
