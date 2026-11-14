@@ -8,8 +8,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def plot_training_curves(model_name: str, stage: int):
-  # 1. อัปเดตชื่อไฟล์ให้ตรงกับ DAM Stage 1 / Stage 2 History
-  log_path = PROJECT_ROOT / "outputs" / "logs" / f"{model_name}_dam_stage{stage}_history.csv"
+  # 1. อัปเดตชื่อไฟล์ให้ตรงกับ Stage 1 / Stage 2 History
+  log_path = PROJECT_ROOT / "outputs" / "logs" / f"{model_name}_hybrid_stage{stage}_history.csv"
   if not log_path.exists():
     raise FileNotFoundError(f"Training history not found at {log_path}")
 
@@ -32,7 +32,7 @@ def plot_training_curves(model_name: str, stage: int):
   axes[0].axvline(best_epoch, color="#27AE60", linestyle="--", alpha=0.8, label=f"Best Epoch ({best_epoch})")
   axes[0].scatter(best_epoch, best_val_loss, color="#27AE60", s=70, zorder=5)
 
-  axes[0].set_title(f"Training & Validation Loss — {model_name} (DAM Stage {stage})", fontsize=12, fontweight="bold")
+  axes[0].set_title(f"Training & Validation Loss — {model_name} (hybrid Stage {stage})", fontsize=12, fontweight="bold")
   axes[0].set_xlabel("Epoch")
   axes[0].set_ylabel("Loss")
   axes[0].xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -58,7 +58,7 @@ def plot_training_curves(model_name: str, stage: int):
     bbox=dict(boxstyle="round,pad=0.35", fc="#EAFAF1", ec="#27AE60", lw=1),
   )
 
-  axes[1].set_title(f"Validation Triage Metrics — {model_name} (DAM Stage {stage})", fontsize=12, fontweight="bold")
+  axes[1].set_title(f"Validation Triage Metrics — {model_name} (hybrid Stage {stage})", fontsize=12, fontweight="bold")
   axes[1].set_xlabel("Epoch")
   axes[1].set_ylabel("Score")
   axes[1].xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -67,14 +67,14 @@ def plot_training_curves(model_name: str, stage: int):
   axes[1].grid(alpha=0.3)
 
   plt.tight_layout()
-  save_path = PROJECT_ROOT / "outputs" / "logs" / f"{model_name}_dam_stage{stage}_learning_curves.png"
+  save_path = PROJECT_ROOT / "outputs" / "logs" / f"{model_name}_hybrid_stage{stage}_learning_curves.png"
   plt.savefig(save_path, dpi=150, bbox_inches="tight")
   print(f"[SAVED] Learning curves -> {save_path}")
   plt.show()
 
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Plot DAM training & validation learning curves")
+  parser = argparse.ArgumentParser(description="Plot hybrid training & validation learning curves")
   parser.add_argument("--model_name", type=str, default="densenet121", help="Model architecture name")
   parser.add_argument("--stage", type=int, choices=[1, 2], required=True, help="Training stage (1 or 2)")
   args = parser.parse_args()
