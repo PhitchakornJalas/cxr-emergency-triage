@@ -236,7 +236,7 @@ __marimo__/
 *.pt
 *.pth
 *.pwf
-*.onnx
+# *.onnx
 *.h5
 *.hdf5
 *.tflite

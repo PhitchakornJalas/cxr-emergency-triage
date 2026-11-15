@@ -1,8 +1,8 @@
 {
-  "model_name": "densenet121",
+  "model_name": "resnet34d",
   "architecture": "hybrid_seg_dam_stage2",
   "img_size": 256,
-  "threshold": 0.009,
+  "threshold": 0.0341,
   "top_k": 16,
   "alpha": 0.7,
   "mean": [
