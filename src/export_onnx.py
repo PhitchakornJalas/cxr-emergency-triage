@@ -26,7 +26,7 @@ def export_to_onnx(model_name: str = "densenet121", stage: int = 2):
 
   # ดึง Clinical Threshold ที่ Calibrate ไว้จาก Stage นั้นๆ มาเซฟคู่กัน
   metrics_path = PROJECT_ROOT / "outputs" / "evaluations" / f"{model_name}_hybrid_stage{stage}_metrics.json"
-  threshold = 0.009
+  threshold = 0.0341
   if metrics_path.exists():
     with open(metrics_path, "r") as f:
       threshold = float(json.load(f)["clinical_triage"]["threshold"])
